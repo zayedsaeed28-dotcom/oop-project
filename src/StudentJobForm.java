@@ -73,6 +73,43 @@ saveBalance.addActionListener(event -> {
         message.setText("Could not save the balance: " + ex.getMessage());
     }
 });
+        JButton cancelJob = new JButton("Cancel my job");
+bottom.add(cancelJob);
+cancelJob.addActionListener(event -> {
+    Scheduler scheduler = dashboard.getScheduler();
+    JComboBox<Integer> jobIds = new JComboBox<>();
+
+    // Only list this student's queued or running jobs.
+    for (Job job : scheduler.getJobs()) {
+        boolean active = "Queued".equals(job.getStatus()) || "Running".equals(job.getStatus());
+        if (student.getUniversityId().equals(job.getStudentId()) && active) {
+            jobIds.addItem(job.getJobId());
+        }
+    }
+    if (jobIds.getItemCount() == 0) {
+        message.setText("You have no active jobs to cancel.");
+        return;
+    }
+
+    JTextField reason = new JTextField();
+    Object[] cancelFields = {"Choose your job ID", jobIds, "Reason for cancellation", reason};
+    int answer = JOptionPane.showOptionDialog(panel, cancelFields, "Cancel a job",
+            JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+            new String[] {"Cancel selected job", "Keep job"}, "Keep job");
+    if (answer != 0) {
+        return;
+    }
+
+    try {
+        int selectedId = (Integer) jobIds.getSelectedItem();
+        scheduler.cancelJob(selectedId, student.getUniversityId(), reason.getText());
+        message.setText("Job " + selectedId + " cancelled.");
+        refreshBalance();
+        dashboard.refreshDashboard();
+    } catch (IllegalArgumentException | IllegalStateException ex) {
+        message.setText(ex.getMessage());
+    }
+});
         bottom.add(message);
         panel.add(bottom, BorderLayout.SOUTH);
         submit.addActionListener(event -> submitJob());
