@@ -40,6 +40,16 @@ public class TimeAllowance {
         allocatedMinutes += minutes;
     }
 
+    // An admin can remove only minutes the student still has available.
+public void reduceAllocatedMinutes(int minutes) {
+    if (minutes <= 0) {
+        throw new IllegalArgumentException("Enter a positive number of minutes.");
+    }
+    if (minutes > getAvailableMinutes()) {
+        throw new IllegalArgumentException("You can only remove available minutes.");
+    }
+    allocatedMinutes -= minutes;
+}
     // Give the caller a copy so it cannot change earlier grant records.
     public ArrayList<String> getGrantHistory() {
         return new ArrayList<String>(grantHistory);
