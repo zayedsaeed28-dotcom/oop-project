@@ -46,6 +46,33 @@ public final class StudentJobForm {
 
         JPanel bottom = new JPanel(new GridLayout(0, 1, 4, 4));
         bottom.add(submit);
+        // Let the signed-in student save a copy of their own balance.
+JButton saveBalance = new JButton("Save my GPU balance");
+bottom.add(saveBalance);
+saveBalance.addActionListener(event -> {
+    JFileChooser chooser = new JFileChooser();
+    chooser.setSelectedFile(new java.io.File("gpu-balance.txt"));
+    if (chooser.showSaveDialog(panel) != JFileChooser.APPROVE_OPTION) {
+        return;
+    }
+
+    java.io.File file = chooser.getSelectedFile();
+    if (file.exists()) {
+        int answer = JOptionPane.showConfirmDialog(panel,
+                "Replace " + file.getName() + "?", "Save balance",
+                JOptionPane.YES_NO_OPTION);
+        if (answer != JOptionPane.YES_OPTION) {
+            return;
+        }
+    }
+
+    try {
+        student.getAllowance().saveSummary(file.toPath());
+        message.setText("Balance saved to " + file.getName());
+    } catch (java.io.IOException ex) {
+        message.setText("Could not save the balance: " + ex.getMessage());
+    }
+});
         bottom.add(message);
         panel.add(bottom, BorderLayout.SOUTH);
         submit.addActionListener(event -> submitJob());
