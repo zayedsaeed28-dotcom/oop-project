@@ -20,12 +20,18 @@ public final class DashboardFrame implements ActionListener {
             new SpinnerDateModel(new Date(), null, null, Calendar.MINUTE));
     private final JButton startButton = new JButton("Set start time");
     private final JButton advanceButton = new JButton("Advance Minute");
+    private Scheduler scheduler;
+    private boolean useScheduler;
+    private final JTextArea waitingJobs = new JTextArea(3, 36);
+
     private final JLabel clockLabel = new JLabel();
-        private final JLabel busyCountLabel = new JLabel();
+    private final JLabel busyCountLabel = new JLabel();
     private final DateTimeFormatter format = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public DashboardFrame(SimulationClock clock) {
         this(clock, new GPU[] {new GPU(1), new GPU(2), new GPU(3), new GPU(4)});
+        useScheduler = true;
+        refreshDashboard();
     }
 
     // Use the same GPU objects as the simulation.
@@ -57,8 +63,11 @@ public final class DashboardFrame implements ActionListener {
             gpuDetails[i] = new JLabel();
             panel.add(gpuDetails[i]);
         }
-                panel.add(new JLabel("Busy GPUs"));
+        panel.add(new JLabel("Busy GPUs"));
         panel.add(busyCountLabel);
+        waitingJobs.setEditable(false);
+        panel.add(new JLabel("Waiting jobs"));
+        panel.add(new JScrollPane(waitingJobs));
         startButton.addActionListener(this);
         advanceButton.addActionListener(this);
         refreshDashboard();
@@ -78,75 +87,10 @@ public final class DashboardFrame implements ActionListener {
     public void refreshDashboard() {
         LocalDateTime time = clock.getCurrentTime();
         boolean started = time != null;
-         // Count how many GPUs are running a job.
-        int busyCount = 0;
-        for (GPU gpu : gpus) {
-            if (!gpu.isAvailable()) {
-                busyCount++;
+        if (useScheduler && started && scheduler == null) {
+            scheduler = new Scheduler(time);
+            GPU[] devices = scheduler.getGpus();
+            for (int i = 0; i < devices.length; i++) {
+                gpus[i] = devices[i];
             }
         }
-        busyCountLabel.setText(busyCount + " of " + gpus.length);
-        datePicker.setEnabled(!started);
-        timePicker.setEnabled(!started);
-        startButton.setEnabled(!started);
-        advanceButton.setEnabled(started);
-        if (started) {
-            clockLabel.setText(time.format(format));
-        } else {
-            clockLabel.setText("Choose a start time");
-        }
-
-        for (int i = 0; i < gpus.length; i++) {
-            GPU gpu = gpus[i];
-            Job job = gpu.getCurrentJob();
-            if (job == null) {
-                gpuDetails[i].setText("Free");
-            } else {
-                String details = "Busy | Job " + job.getJobId();
-                if (started) {
-                    details += " | " + gpu.getRemainingMinutes(time) + " min left";
-                }
-                details += " | Finish " + gpu.getExpectedFinishTime().format(format);
-                gpuDetails[i].setText(details);
-            }
-        }
-    }
-
-    public void actionPerformed(ActionEvent event) {
-        if (event.getSource() == startButton) {
-            try {
-                // Read typed changes as well as values selected with the arrows.
-                datePicker.commitEdit();
-                timePicker.commitEdit();
-                ZoneId zone = ZoneId.systemDefault();
-                Date date = (Date) datePicker.getValue();
-                Date time = (Date) timePicker.getValue();
-                clock.start(LocalDateTime.of(date.toInstant().atZone(zone).toLocalDate(),
-                        time.toInstant().atZone(zone).toLocalTime()));
-            } catch (ParseException ex) {
-                JOptionPane.showMessageDialog(panel, "Use dd/MM/yyyy for the date and HH:mm for the time.");
-                return;
-            }
-        } else if (event.getSource() == advanceButton) {
-            clock.advanceMinute();
-            for (GPU gpu : gpus) {
-                gpu.finishIfReady(clock.getCurrentTime());
-            }
-        }
-        refreshDashboard();
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                JFrame window = new JFrame("GPU dashboard");
-                DashboardFrame dashboard = new DashboardFrame(new SimulationClock());
-                window.setContentPane(dashboard.getPanel());
-                window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                window.pack();
-                window.setSize(Math.max(640, window.getWidth()), window.getHeight());
-                window.setVisible(true);
-            }
-        });
-    }
-}
