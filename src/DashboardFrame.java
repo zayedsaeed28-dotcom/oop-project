@@ -28,6 +28,7 @@ public final class DashboardFrame implements ActionListener {
 
     private final JLabel clockLabel = new JLabel();
     private final JLabel busyCountLabel = new JLabel();
+    private final JLabel jobCountsLabel = new JLabel();
     private final JLabel utilizationLabel = new JLabel();
     private final DateTimeFormatter format = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
@@ -68,6 +69,8 @@ public final class DashboardFrame implements ActionListener {
         }
         panel.add(new JLabel("Busy GPUs"));
         panel.add(busyCountLabel);
+        panel.add(new JLabel("Job summary"));
+panel.add(jobCountsLabel);
         panel.add(new JLabel("GPU utilization"));
         panel.add(utilizationLabel);
         waitingJobs.setEditable(false);
@@ -140,6 +143,27 @@ public final class DashboardFrame implements ActionListener {
         } else {
             utilizationLabel.setText(String.format(Locale.ROOT, "%.1f%%", percent));
         }
+        // Count each job once using its current status.
+if (scheduler == null) {
+    jobCountsLabel.setText("N/A");
+} else {
+    int queued = 0;
+    int running = 0;
+    int completed = 0;
+    int cancelled = 0;
+
+    for (Job job : scheduler.getJobs()) {
+        switch (job.getStatus()) {
+            case "Queued":    queued++;    break;
+            case "Running":   running++;   break;
+            case "Completed": completed++; break;
+            case "Cancelled": cancelled++; break;
+        }
+    }
+
+    jobCountsLabel.setText("Queued " + queued + " | Running " + running
+            + " | Completed " + completed + " | Cancelled " + cancelled);
+}
         refreshWaitingJobs();
         refreshCompletedJobs();
     }
