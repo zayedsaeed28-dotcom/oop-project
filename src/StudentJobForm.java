@@ -210,15 +210,44 @@ cancelJob.addActionListener(event -> {
     // Run this file to try the form with one sample student and the real dashboard clock.
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            RegistrationManager accounts = new RegistrationManager();
-            AccessRequest demo = accounts.register("S01", "Demo Student", "s01@example.com", "000", "demo");
-            demo.approve();
+                       // Load the saved students when the program starts.
+            RegistrationManager accounts;
+            try {
+                java.nio.file.Path file = java.nio.file.Paths.get(
+                        System.getProperty("user.home"), "ku-gpu-registrations.dat");
+                accounts = RegistrationManager.load(file);
+
+                if (accounts.findRequest("S01") == null) {
+                    accounts.register("S01", "Demo Student", "s01@example.com",
+                            "000", "demo").approve();
+                }
+            } catch (java.io.IOException ex) {
+                JOptionPane.showMessageDialog(null, "Could not load registrations: " + ex.getMessage());
+                return;
+            }
+
             DashboardFrame dashboard = new DashboardFrame(new SimulationClock());
             JButton login = new JButton("Student login (demo: S01 / demo)");
             login.addActionListener(event -> open(accounts, dashboard));
 
             JFrame window = new JFrame("Student job form demo");
-            window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+            // Save the requests and approval decisions when the main window closes.
+            window.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+            window.addWindowListener(new java.awt.event.WindowAdapter() {
+                public void windowClosing(java.awt.event.WindowEvent event) {
+                    try {
+                        accounts.save();
+                    } catch (java.io.IOException ex) {
+                        int answer = JOptionPane.showConfirmDialog(window,
+                                "Could not save registrations: " + ex.getMessage()
+                                + "\nClose without saving your changes?", "Save error",
+                                JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+                        if (answer != JOptionPane.YES_OPTION) return;
+                    }
+                    window.dispose();
+                }
+            }); 
             window.add(new JScrollPane(dashboard.getPanel()), BorderLayout.CENTER);
             JButton review = new JButton("Review account requests");
 JPanel buttons = new JPanel();
