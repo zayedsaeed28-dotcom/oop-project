@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 
 // Keeps track of one approved student's GPU minutes.
@@ -110,7 +111,16 @@ public void saveSummary(Path file) throws IOException {
         lines.addAll(grantHistory);
     }
 
-    Files.write(file, lines);
+   // Finish writing the new summary before replacing the old one.
+Path target = file.toAbsolutePath();
+Path temp = Files.createTempFile(target.getParent(), "allowance-", ".tmp");
+try {
+    Files.write(temp, lines);
+    Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING);
+} finally {
+    Files.deleteIfExists(temp);
+}
 }
 
     public int getAvailableMinutes() {
