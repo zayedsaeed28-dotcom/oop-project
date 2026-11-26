@@ -24,13 +24,14 @@ public class AccessRequest {
     public String getPhone() { return phone; }
     public String getStatus() { return status; }
 
-    public boolean matchesPassword(String input) {
-        // The student gets an allowance only after approval.
+   public boolean matchesPassword(String input) {
+    return input != null && input.equals(password);
+}
+
+// The student gets an allowance only after approval.
 public TimeAllowance getAllowance() {
     return allowance;
 }
-        return input != null && input.equals(password);
-    }
 
     // Return false if this request was already reviewed.
     public boolean approve() {
