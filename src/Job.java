@@ -1,3 +1,4 @@
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 // A Job stores one student's request to use a GPU.
@@ -98,6 +99,22 @@ public class Job {
         cancellationReason = note;
         cancellationTime = time;
         status = "Cancelled";
+    }
+
+    // Once the job starts, its actual queue wait is known.
+    public Long getWaitBeforeStartMinutes() {
+        if (startTime == null) {
+            return null;
+        }
+        return Duration.between(submissionTime, startTime).toMinutes();
+    }
+
+    // Waiting is free. A finished or cancelled run is charged for time on the GPU.
+    public int getChargedMinutes() {
+        if (startTime == null || finishTime == null) {
+            return 0;
+        }
+        return (int) Duration.between(startTime, finishTime).toMinutes();
     }
 
     // Each workload unit takes one simulated minute.

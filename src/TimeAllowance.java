@@ -1,7 +1,6 @@
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.ArrayList;
 
 // Keeps track of one approved student's GPU minutes.
@@ -89,9 +88,7 @@ public void reduceAllocatedMinutes(int minutes) {
     public int getUsedMinutes() {
         int used = 0;
         for (Job job : jobs) {
-            if (job.getStartTime() != null && job.getFinishTime() != null) {
-                used += (int) Duration.between(job.getStartTime(), job.getFinishTime()).toMinutes();
-            }
+            used += job.getChargedMinutes();
         }
         return used;
     }

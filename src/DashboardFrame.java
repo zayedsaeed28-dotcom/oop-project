@@ -24,6 +24,7 @@ public final class DashboardFrame implements ActionListener {
     private Scheduler scheduler;
     private boolean useScheduler;
     private final JTextArea waitingJobs = new JTextArea(3, 36);
+    private final JTextArea completedJobs = new JTextArea(5, 36);
 
     private final JLabel clockLabel = new JLabel();
     private final JLabel busyCountLabel = new JLabel();
@@ -72,6 +73,9 @@ public final class DashboardFrame implements ActionListener {
         waitingJobs.setEditable(false);
         panel.add(new JLabel("Waiting jobs"));
         panel.add(new JScrollPane(waitingJobs));
+        completedJobs.setEditable(false);
+        panel.add(new JLabel("Completed jobs"));
+        panel.add(new JScrollPane(completedJobs));
         startButton.addActionListener(this);
         advanceButton.addActionListener(this);
         refreshDashboard();
@@ -137,6 +141,7 @@ public final class DashboardFrame implements ActionListener {
             utilizationLabel.setText(String.format(Locale.ROOT, "%.1f%%", percent));
         }
         refreshWaitingJobs();
+        refreshCompletedJobs();
     }
 
     // Other screens can use this scheduler once the start time is set.
@@ -159,6 +164,30 @@ public final class DashboardFrame implements ActionListener {
         }
         waitingJobs.setText(lines.length() == 0 ? "No waiting jobs." : lines.toString());
         waitingJobs.setCaretPosition(0);
+    }
+
+    // Show the final times recorded by the scheduler for each completed job.
+    private void refreshCompletedJobs() {
+        if (scheduler == null) {
+            completedJobs.setText(useScheduler ? "Set the start time first." : "Job history unavailable.");
+            return;
+        }
+
+        StringBuilder lines = new StringBuilder();
+        for (Job job : scheduler.getJobs()) {
+            if ("Completed".equals(job.getStatus())) {
+                int runtime = job.getChargedMinutes(); // The whole run is charged on completion.
+                lines.append("Job ").append(job.getJobId()).append(" | GPU ").append(job.getAssignedGpuId())
+                        .append(" | Wait ").append(job.getWaitBeforeStartMinutes()).append(" min")
+                        .append(" | Runtime ").append(runtime).append(" min")
+                        .append(" | Charged ").append(runtime).append(" min\n");
+                lines.append("Submitted ").append(job.getSubmissionTime().format(format))
+                        .append(" | Started ").append(job.getStartTime().format(format))
+                        .append(" | Finished ").append(job.getFinishTime().format(format)).append("\n\n");
+            }
+        }
+        completedJobs.setText(lines.length() == 0 ? "No completed jobs." : lines.toString());
+        completedJobs.setCaretPosition(0);
     }
 
     public void actionPerformed(ActionEvent event) {
