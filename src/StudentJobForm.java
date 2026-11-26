@@ -96,6 +96,38 @@ public final class StudentJobForm {
         login.add(id);
         login.add(new JLabel("Password"));
         login.add(password);
+                // New students can request an account from the login window.
+        JButton register = new JButton("Request account");
+        login.add(new JLabel("New student?"));
+        login.add(register);
+
+        register.addActionListener(event -> {
+            JTextField newId = new JTextField(id.getText());
+            JTextField name = new JTextField();
+            JTextField email = new JTextField();
+            JTextField phone = new JTextField();
+            JPasswordField newPassword = new JPasswordField();
+
+            Object[] fields = {
+                "University ID", newId, "Name", name, "Email", email,
+                "Phone", phone, "Choose a password", newPassword
+            };
+
+            // Keep the entered details if the student needs to fix a mistake.
+            while (JOptionPane.showConfirmDialog(login, fields, "Request an account",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) == JOptionPane.OK_OPTION) {
+                try {
+                    AccessRequest request = accounts.register(newId.getText(), name.getText(),
+                            email.getText(), phone.getText(), new String(newPassword.getPassword()));
+                    id.setText(request.getUniversityId());
+                    password.setText("");
+                    JOptionPane.showMessageDialog(login, "Request sent. Please wait for approval.");
+                    break;
+                } catch (IllegalArgumentException | IllegalStateException ex) {
+                    JOptionPane.showMessageDialog(login, ex.getMessage());
+                }
+            }
+        });
         int answer = JOptionPane.showConfirmDialog(dashboard.getPanel(), login,
                 "Student login", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (answer == JOptionPane.OK_OPTION) {
