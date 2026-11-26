@@ -220,7 +220,58 @@ cancelJob.addActionListener(event -> {
             JFrame window = new JFrame("Student job form demo");
             window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             window.add(new JScrollPane(dashboard.getPanel()), BorderLayout.CENTER);
-            window.add(login, BorderLayout.SOUTH);
+            JButton review = new JButton("Review account requests");
+JPanel buttons = new JPanel();
+buttons.add(login);
+buttons.add(review);
+window.add(buttons, BorderLayout.SOUTH);
+
+review.addActionListener(event -> {
+    // Check the administrator account from the project brief.
+    JTextField username = new JTextField();
+    JPasswordField password = new JPasswordField();
+    Object[] fields = {"Username", username, "Password", password};
+
+    int signIn = JOptionPane.showConfirmDialog(window, fields, "Admin login",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+    if (signIn != JOptionPane.OK_OPTION) {
+        return;
+    }
+    if (!"admin".equals(username.getText()) ||
+            !"gpu2026".equals(new String(password.getPassword()))) {
+        JOptionPane.showMessageDialog(window, "Incorrect admin username or password.");
+        return;
+    }
+
+    // Refresh the list after each decision.
+    while (true) {
+        java.util.ArrayList<AccessRequest> pending = accounts.getPendingRequests();
+        if (pending.isEmpty()) {
+            JOptionPane.showMessageDialog(window, "No pending requests.");
+            return;
+        }
+
+        JComboBox<String> choices = new JComboBox<>();
+        for (AccessRequest request : pending) {
+            choices.addItem(request.getUniversityId() + " | " + request.getName()
+                    + " | " + request.getEmail() + " | " + request.getPhone());
+        }
+
+        int action = JOptionPane.showOptionDialog(window, choices, "Pending requests",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+                new String[] {"Approve", "Reject", "Log out"}, "Log out");
+        if (action != 0 && action != 1) {
+            return;
+        }
+
+        AccessRequest selected = pending.get(choices.getSelectedIndex());
+        if (action == 0) {
+            selected.approve();
+        } else {
+            selected.reject();
+        }
+    }
+});
             window.setSize(800, 600);
             window.setLocationRelativeTo(null);
             window.setVisible(true);
