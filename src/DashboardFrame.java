@@ -9,10 +9,12 @@ import java.util.Calendar;
 import java.util.Date;
 import javax.swing.*;
 
-// Builds the clock controls shown in the dashboard window.
+// Shows the simulation clock and the four GPUs on the admin dashboard.
 public final class DashboardFrame implements ActionListener {
     private final SimulationClock clock;
-    private final JPanel panel = new JPanel(new GridLayout(4, 2, 8, 8));
+    private final GPU[] gpus = new GPU[4];
+    private final JLabel[] gpuDetails = new JLabel[4];
+    private final JPanel panel = new JPanel(new GridLayout(0, 2, 8, 8));
     private final JSpinner datePicker = new JSpinner(new SpinnerDateModel());
     private final JSpinner timePicker = new JSpinner(
             new SpinnerDateModel(new Date(), null, null, Calendar.MINUTE));
@@ -22,7 +24,21 @@ public final class DashboardFrame implements ActionListener {
     private final DateTimeFormatter format = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public DashboardFrame(SimulationClock clock) {
+        this(clock, new GPU[] {new GPU(1), new GPU(2), new GPU(3), new GPU(4)});
+    }
+
+    // Use the same GPU objects as the simulation.
+    public DashboardFrame(SimulationClock clock, GPU[] devices) {
         this.clock = clock;
+        if (devices == null || devices.length != 4) {
+            throw new IllegalArgumentException("The dashboard needs four GPUs.");
+        }
+        for (GPU gpu : devices) {
+            if (gpu == null || gpus[gpu.getGpuId() - 1] != null) {
+                throw new IllegalArgumentException("Use GPU IDs 1 to 4 once each.");
+            }
+            gpus[gpu.getGpuId() - 1] = gpu;
+        }
         setPickerFormat(datePicker, "dd/MM/yyyy");
         setPickerFormat(timePicker, "HH:mm");
         panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
@@ -34,9 +50,15 @@ public final class DashboardFrame implements ActionListener {
         panel.add(advanceButton);
         panel.add(new JLabel("Simulation time"));
         panel.add(clockLabel);
+        // Keep one row per GPU, in GPU number order.
+        for (int i = 0; i < gpus.length; i++) {
+            panel.add(new JLabel("GPU " + gpus[i].getGpuId()));
+            gpuDetails[i] = new JLabel();
+            panel.add(gpuDetails[i]);
+        }
         startButton.addActionListener(this);
         advanceButton.addActionListener(this);
-        refreshClock();
+        refreshDashboard();
     }
 
     private void setPickerFormat(JSpinner picker, String pattern) {
@@ -50,7 +72,7 @@ public final class DashboardFrame implements ActionListener {
     }
 
     // Lock both pickers after the simulation starts.
-    private void refreshClock() {
+    public void refreshDashboard() {
         LocalDateTime time = clock.getCurrentTime();
         boolean started = time != null;
         datePicker.setEnabled(!started);
@@ -61,6 +83,21 @@ public final class DashboardFrame implements ActionListener {
             clockLabel.setText(time.format(format));
         } else {
             clockLabel.setText("Choose a start time");
+        }
+
+        for (int i = 0; i < gpus.length; i++) {
+            GPU gpu = gpus[i];
+            Job job = gpu.getCurrentJob();
+            if (job == null) {
+                gpuDetails[i].setText("Free");
+            } else {
+                String details = "Busy | Job " + job.getJobId();
+                if (started) {
+                    details += " | " + gpu.getRemainingMinutes(time) + " min left";
+                }
+                details += " | Finish " + gpu.getExpectedFinishTime().format(format);
+                gpuDetails[i].setText(details);
+            }
         }
     }
 
@@ -81,8 +118,11 @@ public final class DashboardFrame implements ActionListener {
             }
         } else if (event.getSource() == advanceButton) {
             clock.advanceMinute();
+            for (GPU gpu : gpus) {
+                gpu.finishIfReady(clock.getCurrentTime());
+            }
         }
-        refreshClock();
+        refreshDashboard();
     }
 
     public static void main(String[] args) {
@@ -93,6 +133,7 @@ public final class DashboardFrame implements ActionListener {
                 window.setContentPane(dashboard.getPanel());
                 window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                 window.pack();
+                window.setSize(Math.max(640, window.getWidth()), window.getHeight());
                 window.setVisible(true);
             }
         });
