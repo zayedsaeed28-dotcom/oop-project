@@ -4,7 +4,8 @@ import java.util.ArrayList;
 // Keeps track of one approved student's GPU minutes.
 public class TimeAllowance {
     private final String studentId;
-    private final int allocatedMinutes;
+    private int allocatedMinutes;
+    private final ArrayList<String> grantHistory = new ArrayList<String>();
     private final ArrayList<Job> jobs = new ArrayList<Job>();
 
     // An approved student normally starts with 100 minutes.
@@ -22,6 +23,23 @@ public class TimeAllowance {
 
     public int getAllocatedMinutes() {
         return allocatedMinutes;
+    }
+
+    // The admin adds extra minutes and records why the student needs them.
+    public void grantExtraMinutes(int minutes, String reason) {
+        if (minutes <= 0 || minutes > Integer.MAX_VALUE - allocatedMinutes) {
+            throw new IllegalArgumentException("Enter a positive number of minutes within range.");
+        }
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Enter a reason for the extra minutes.");
+        }
+        grantHistory.add(minutes + " minutes: " + reason.trim());
+        allocatedMinutes += minutes;
+    }
+
+    // Give the caller a copy so it cannot change earlier grant records.
+    public ArrayList<String> getGrantHistory() {
+        return new ArrayList<String>(grantHistory);
     }
 
     // Reserve minutes before the scheduler starts the job.
