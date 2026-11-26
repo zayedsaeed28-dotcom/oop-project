@@ -8,6 +8,7 @@ public class Scheduler {
     private final GPU[] gpus = {new GPU(1), new GPU(2), new GPU(3), new GPU(4)};
     private final ArrayList<Job> jobs = new ArrayList<>();
     private int nextJobId = 1;
+    private final LocalDateTime simulationStart;
     private LocalDateTime lastMinute;
 
     // Start at the same minute the user selected on the simulation clock.
@@ -15,6 +16,7 @@ public class Scheduler {
         if (startTime == null || startTime.getSecond() != 0 || startTime.getNano() != 0) {
             throw new IllegalArgumentException("Choose a start time in whole minutes.");
         }
+        simulationStart = startTime;
         lastMinute = startTime;
     }
 
@@ -150,6 +152,30 @@ public class Scheduler {
             freeAt[earliest] = prediction.predictedFinish;
         }
         return predictions;
+    }
+
+    // At the start, no time has passed. The dashboard can show N/A for null.
+    public Double getUtilizationPercent() {
+        long elapsedMinutes = Duration.between(simulationStart, lastMinute).toMinutes();
+        if (elapsedMinutes == 0) {
+            return null;
+        }
+
+        long busyMinutes = 0;
+        for (Job job : jobs) {
+            // A job that never started used zero GPU minutes.
+            LocalDateTime start = job.getStartTime();
+            if (start != null) {
+                LocalDateTime end = job.getFinishTime();
+                if (end == null) {
+                    end = lastMinute; // This job is still running.
+                }
+                busyMinutes += Duration.between(start, end).toMinutes();
+            }
+        }
+
+        long totalGpuMinutes = elapsedMinutes * gpus.length;
+        return 100.0 * busyMinutes / totalGpuMinutes;
     }
 
     // The dashboard can read the same GPU objects and job history.
