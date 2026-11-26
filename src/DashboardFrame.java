@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Locale;
 import javax.swing.*;
 
 // Shows the simulation clock and the four GPUs on the admin dashboard.
@@ -26,6 +27,7 @@ public final class DashboardFrame implements ActionListener {
 
     private final JLabel clockLabel = new JLabel();
     private final JLabel busyCountLabel = new JLabel();
+    private final JLabel utilizationLabel = new JLabel();
     private final DateTimeFormatter format = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public DashboardFrame(SimulationClock clock) {
@@ -65,6 +67,8 @@ public final class DashboardFrame implements ActionListener {
         }
         panel.add(new JLabel("Busy GPUs"));
         panel.add(busyCountLabel);
+        panel.add(new JLabel("GPU utilization"));
+        panel.add(utilizationLabel);
         waitingJobs.setEditable(false);
         panel.add(new JLabel("Waiting jobs"));
         panel.add(new JScrollPane(waitingJobs));
@@ -94,3 +98,108 @@ public final class DashboardFrame implements ActionListener {
                 gpus[i] = devices[i];
             }
         }
+        datePicker.setEnabled(!started);
+        timePicker.setEnabled(!started);
+        startButton.setEnabled(!started);
+        advanceButton.setEnabled(started);
+        if (started) {
+            clockLabel.setText(time.format(format));
+        } else {
+            clockLabel.setText("Choose a start time");
+        }
+
+        int busyCount = 0;
+        for (int i = 0; i < gpus.length; i++) {
+            GPU gpu = gpus[i];
+            Job job = gpu.getCurrentJob();
+            if (job == null) {
+                gpuDetails[i].setText("Free");
+            } else {
+                busyCount++;
+                String details = "Busy | Job " + job.getJobId();
+                if (started) {
+                    details += " | " + gpu.getRemainingMinutes(time) + " min left";
+                }
+                details += " | Finish " + gpu.getExpectedFinishTime().format(format);
+                gpuDetails[i].setText(details);
+            }
+        }
+        busyCountLabel.setText(busyCount + " of " + gpus.length);
+
+        // The scheduler counts busy minutes since the simulation started.
+        Double percent = null;
+        if (scheduler != null) {
+            percent = scheduler.getUtilizationPercent();
+        }
+        if (percent == null) {
+            utilizationLabel.setText("N/A");
+        } else {
+            utilizationLabel.setText(String.format(Locale.ROOT, "%.1f%%", percent));
+        }
+        refreshWaitingJobs();
+    }
+
+    // Other screens can use this scheduler once the start time is set.
+    public Scheduler getScheduler() {
+        return scheduler;
+    }
+
+    private void refreshWaitingJobs() {
+        if (scheduler == null) {
+            waitingJobs.setText(useScheduler ? "Set the start time first." : "Queue unavailable.");
+            return;
+        }
+        StringBuilder lines = new StringBuilder();
+        for (Scheduler.QueuePrediction job : scheduler.getQueuePredictions()) {
+            lines.append("#").append(job.queuePosition).append("  Job ").append(job.jobId)
+                    .append("  GPU ").append(job.predictedGpuId)
+                    .append("  Wait ").append(job.waitMinutes).append(" min")
+                    .append("  Start ").append(job.predictedStart.format(format))
+                    .append("  Finish ").append(job.predictedFinish.format(format)).append("\n");
+        }
+        waitingJobs.setText(lines.length() == 0 ? "No waiting jobs." : lines.toString());
+        waitingJobs.setCaretPosition(0);
+    }
+
+    public void actionPerformed(ActionEvent event) {
+        if (event.getSource() == startButton) {
+            try {
+                // Read typed changes as well as values selected with the arrows.
+                datePicker.commitEdit();
+                timePicker.commitEdit();
+                ZoneId zone = ZoneId.systemDefault();
+                Date date = (Date) datePicker.getValue();
+                Date time = (Date) timePicker.getValue();
+                clock.start(LocalDateTime.of(date.toInstant().atZone(zone).toLocalDate(),
+                        time.toInstant().atZone(zone).toLocalTime()));
+            } catch (ParseException ex) {
+                JOptionPane.showMessageDialog(panel, "Use dd/MM/yyyy for the date and HH:mm for the time.");
+                return;
+            }
+        } else if (event.getSource() == advanceButton) {
+            clock.advanceMinute();
+            if (scheduler != null) {
+                scheduler.advanceMinute(clock.getCurrentTime());
+            } else {
+                for (GPU gpu : gpus) {
+                    gpu.finishIfReady(clock.getCurrentTime());
+                }
+            }
+        }
+        refreshDashboard();
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                JFrame window = new JFrame("GPU dashboard");
+                DashboardFrame dashboard = new DashboardFrame(new SimulationClock());
+                window.setContentPane(dashboard.getPanel());
+                window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                window.pack();
+                window.setSize(Math.max(840, window.getWidth()), window.getHeight());
+                window.setVisible(true);
+            }
+        });
+    }
+}
