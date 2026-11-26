@@ -37,6 +37,17 @@ public class RegistrationManager {
         return request;
     }
 
+       // Only an approved student with the correct password can log in.
+    public boolean canStudentLogIn(String universityId, String password) {
+        AccessRequest request = findRequest(universityId);
+
+        if (request == null || !"Approved".equals(request.getStatus())) {
+            return false;
+        }
+
+        return request.matchesPassword(password);
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
