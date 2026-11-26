@@ -1,0 +1,133 @@
+import java.awt.BorderLayout;
+import java.awt.GridLayout;
+import javax.swing.*;
+
+// An approved student uses this form to submit a job to the shared scheduler.
+public final class StudentJobForm {
+    private final JPanel panel = new JPanel(new BorderLayout(6, 6));
+    private final DashboardFrame dashboard;
+    private final AccessRequest student;
+    private final JTextField title = new JTextField(22);
+    private final JTextField application = new JTextField(22);
+    private final JTextArea description = new JTextArea(3, 22);
+    private final JComboBox<String> size = new JComboBox<>(new String[] {
+        "Small (5 min)", "Medium (15 min)", "Large (30 min)", "Very large (60 min)"
+    });
+    private final JLabel balance = new JLabel();
+    private final JLabel message = new JLabel(" ");
+    private final JButton submit = new JButton("Confirm and submit job");
+
+    public StudentJobForm(RegistrationManager accounts, String id, String password,
+                          DashboardFrame dashboard) {
+        if (!accounts.canStudentLogIn(id, password)) {
+            throw new IllegalArgumentException("Check your ID, password and account approval.");
+        }
+        if (dashboard.getScheduler() == null) {
+            throw new IllegalStateException("Set the simulation start time first.");
+        }
+        this.student = accounts.findRequest(id);
+        this.dashboard = dashboard;
+
+        JPanel fields = new JPanel(new GridLayout(0, 2, 6, 6));
+        fields.add(new JLabel("Student"));
+        fields.add(new JLabel(student.getUniversityId()));
+        fields.add(new JLabel("Job title"));
+        fields.add(title);
+        fields.add(new JLabel("Application name"));
+        fields.add(application);
+        fields.add(new JLabel("Description"));
+        description.setLineWrap(true);
+        description.setWrapStyleWord(true);
+        fields.add(new JScrollPane(description));
+        fields.add(new JLabel("Task size and duration"));
+        fields.add(size);
+        panel.add(balance, BorderLayout.NORTH);
+        panel.add(fields, BorderLayout.CENTER);
+
+        JPanel bottom = new JPanel(new GridLayout(0, 1, 4, 4));
+        bottom.add(submit);
+        bottom.add(message);
+        panel.add(bottom, BorderLayout.SOUTH);
+        submit.addActionListener(event -> submitJob());
+        refreshBalance();
+    }
+
+    public JPanel getPanel() {
+        return panel;
+    }
+
+    private void refreshBalance() {
+        TimeAllowance minutes = student.getAllowance();
+        balance.setText("GPU minutes: allocated " + minutes.getAllocatedMinutes()
+                + " | used " + minutes.getUsedMinutes() + " | reserved " + minutes.getReservedMinutes()
+                + " | available " + minutes.getAvailableMinutes());
+        submit.setEnabled(minutes.getAvailableMinutes() > 0);
+    }
+
+    private void submitJob() {
+        Scheduler scheduler = dashboard.getScheduler();
+        String choice = (String) size.getSelectedItem();
+        // The scheduler needs just the size name, for example "Very large".
+        String taskSize = choice.substring(0, choice.indexOf(" ("));
+        try {
+            Job job = scheduler.createJob(student.getUniversityId(), title.getText(),
+                    application.getText(), description.getText(), taskSize);
+            // Check the student's balance before sending the job to a GPU.
+            student.getAllowance().reserve(job);
+            scheduler.addAcceptedJob(job);
+            message.setText("Job " + job.getJobId() + " accepted: " + job.getStatus()
+                    + " (" + job.getEstimatedDuration() + " min).");
+            title.setText("");
+            application.setText("");
+            description.setText("");
+            dashboard.refreshDashboard();
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            message.setText(ex.getMessage());
+        }
+        refreshBalance();
+    }
+
+    // Open the form with the same accounts and clock that the application uses.
+    public static void open(RegistrationManager accounts, DashboardFrame dashboard) {
+        JTextField id = new JTextField();
+        JPasswordField password = new JPasswordField();
+        JPanel login = new JPanel(new GridLayout(0, 2, 6, 6));
+        login.add(new JLabel("University ID"));
+        login.add(id);
+        login.add(new JLabel("Password"));
+        login.add(password);
+        int answer = JOptionPane.showConfirmDialog(dashboard.getPanel(), login,
+                "Student login", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (answer == JOptionPane.OK_OPTION) {
+            try {
+                StudentJobForm form = new StudentJobForm(accounts, id.getText(),
+                        new String(password.getPassword()), dashboard);
+                JOptionPane.showOptionDialog(dashboard.getPanel(), form.getPanel(), "Submit a GPU job",
+                        JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+                        new String[] {"Log out"}, "Log out");
+            } catch (IllegalArgumentException | IllegalStateException ex) {
+                JOptionPane.showMessageDialog(dashboard.getPanel(), ex.getMessage());
+            }
+        }
+    }
+
+    // Run this file to try the form with one sample student and the real dashboard clock.
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            RegistrationManager accounts = new RegistrationManager();
+            AccessRequest demo = accounts.register("S01", "Demo Student", "s01@example.com", "000", "demo");
+            demo.approve();
+            DashboardFrame dashboard = new DashboardFrame(new SimulationClock());
+            JButton login = new JButton("Student login (demo: S01 / demo)");
+            login.addActionListener(event -> open(accounts, dashboard));
+
+            JFrame window = new JFrame("Student job form demo");
+            window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            window.add(new JScrollPane(dashboard.getPanel()), BorderLayout.CENTER);
+            window.add(login, BorderLayout.SOUTH);
+            window.setSize(800, 600);
+            window.setLocationRelativeTo(null);
+            window.setVisible(true);
+        });
+    }
+}
