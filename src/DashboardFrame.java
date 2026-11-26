@@ -21,6 +21,7 @@ public final class DashboardFrame implements ActionListener {
     private final JButton startButton = new JButton("Set start time");
     private final JButton advanceButton = new JButton("Advance Minute");
     private final JLabel clockLabel = new JLabel();
+        private final JLabel busyCountLabel = new JLabel();
     private final DateTimeFormatter format = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public DashboardFrame(SimulationClock clock) {
@@ -56,6 +57,8 @@ public final class DashboardFrame implements ActionListener {
             gpuDetails[i] = new JLabel();
             panel.add(gpuDetails[i]);
         }
+                panel.add(new JLabel("Busy GPUs"));
+        panel.add(busyCountLabel);
         startButton.addActionListener(this);
         advanceButton.addActionListener(this);
         refreshDashboard();
@@ -75,6 +78,14 @@ public final class DashboardFrame implements ActionListener {
     public void refreshDashboard() {
         LocalDateTime time = clock.getCurrentTime();
         boolean started = time != null;
+         // Count how many GPUs are running a job.
+        int busyCount = 0;
+        for (GPU gpu : gpus) {
+            if (!gpu.isAvailable()) {
+                busyCount++;
+            }
+        }
+        busyCountLabel.setText(busyCount + " of " + gpus.length);
         datePicker.setEnabled(!started);
         timePicker.setEnabled(!started);
         startButton.setEnabled(!started);
