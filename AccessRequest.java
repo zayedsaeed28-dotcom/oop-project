@@ -5,6 +5,7 @@ public class AccessRequest {
     private final String phone;
     private final String password;
     private String status;
+    private TimeAllowance allowance;
 
     // A new request waits for the administrator to review it.
     public AccessRequest(String universityId, String name, String email,
@@ -24,6 +25,10 @@ public class AccessRequest {
     public String getStatus() { return status; }
 
     public boolean matchesPassword(String input) {
+        // The student gets an allowance only after approval.
+public TimeAllowance getAllowance() {
+    return allowance;
+}
         return input != null && input.equals(password);
     }
 
@@ -31,7 +36,7 @@ public class AccessRequest {
     public boolean approve() {
         if (!status.equals("Pending")) {
             return false;
-        }
+        }allowance = new TimeAllowance(universityId);
         status = "Approved";
         return true;
     }
