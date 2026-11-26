@@ -1,5 +1,7 @@
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 // Sends accepted jobs to the four GPUs in first come, first served order.
 public class Scheduler {
@@ -52,32 +54,102 @@ public class Scheduler {
         startWaitingJobs();
     }
 
-    // Check GPUs in ID order so the lowest free ID gets the next job.
-    private void startWaitingJobs() {
-        for (GPU gpu : gpus) {
-            if (gpu.isAvailable()) {
-                Job next = firstWaitingJob();
-                if (next == null) {
-                    return;
+    // The caller supplies the username of the signed-in student or administrator.
+    public void cancelJob(int jobId, String username, String reason) {
+        for (Job job : jobs) {
+            if (job.getJobId() == jobId) {
+                if (!job.getStudentId().equals(username) && !"admin".equals(username)) {
+                    throw new IllegalArgumentException("You can only cancel your own jobs.");
                 }
-                gpu.startJob(next, lastMinute);
+                job.cancel(username, reason, lastMinute);
+                startWaitingJobs();
+                return;
+            }
+        }
+        throw new IllegalArgumentException("Job ID was not found.");
+    }
+
+    // Both the real schedule and the predictions use the same queue order.
+    private ArrayList<Job> getWaitingJobsInOrder() {
+        ArrayList<Job> waiting = new ArrayList<>();
+        for (Job job : jobs) {
+            if (job.getStatus().equals("Queued")) {
+                waiting.add(job);
+            }
+        }
+        waiting.sort(new Comparator<Job>() {
+            public int compare(Job first, Job second) {
+                int order = first.getSubmissionTime().compareTo(second.getSubmissionTime());
+                if (order == 0) {
+                    return Integer.compare(first.getJobId(), second.getJobId());
+                }
+                return order;
+            }
+        });
+        return waiting;
+    }
+
+    // Assign the first waiting job to the lowest-numbered free GPU.
+    private void startWaitingJobs() {
+        ArrayList<Job> waiting = getWaitingJobsInOrder();
+        int next = 0;
+        for (GPU gpu : gpus) {
+            if (next == waiting.size()) {
+                break;
+            }
+            if (gpu.isAvailable()) {
+                gpu.startJob(waiting.get(next), lastMinute);
+                next++;
             }
         }
     }
 
-    // An earlier submission goes first. Use the lower job ID to break a tie.
-    private Job firstWaitingJob() {
-        Job first = null;
-        for (Job job : jobs) {
-            if (job.getStatus().equals("Queued")) {
-                if (first == null || job.getSubmissionTime().isBefore(first.getSubmissionTime())
-                        || (job.getSubmissionTime().equals(first.getSubmissionTime())
-                            && job.getJobId() < first.getJobId())) {
-                    first = job;
-                }
+    // Each result describes one queued job at the current simulation minute.
+    public static class QueuePrediction {
+        public final int jobId;
+        public final int queuePosition;
+        public final int predictedGpuId;
+        public final LocalDateTime predictedStart;
+        public final LocalDateTime predictedFinish;
+        public final long waitMinutes;
+
+        private QueuePrediction(Job job, int position, int gpuId,
+                                LocalDateTime start, LocalDateTime now) {
+            jobId = job.getJobId();
+            queuePosition = position;
+            predictedGpuId = gpuId;
+            predictedStart = start;
+            predictedFinish = start.plusMinutes(job.getEstimatedDuration());
+            waitMinutes = Duration.between(now, start).toMinutes();
+        }
+    }
+
+    public ArrayList<QueuePrediction> getQueuePredictions() {
+        // Work with a copy of each GPU's next free time.
+        LocalDateTime[] freeAt = new LocalDateTime[gpus.length];
+        for (int i = 0; i < gpus.length; i++) {
+            freeAt[i] = gpus[i].getExpectedFinishTime();
+            if (freeAt[i] == null) {
+                freeAt[i] = lastMinute;
             }
         }
-        return first;
+
+        ArrayList<QueuePrediction> predictions = new ArrayList<>();
+        for (Job job : getWaitingJobsInOrder()) {
+            // On a tie, keep the lower GPU ID.
+            int earliest = 0;
+            for (int i = 1; i < freeAt.length; i++) {
+                if (freeAt[i].isBefore(freeAt[earliest])) {
+                    earliest = i;
+                }
+            }
+            QueuePrediction prediction = new QueuePrediction(job, predictions.size() + 1,
+                    gpus[earliest].getGpuId(), freeAt[earliest], lastMinute);
+            predictions.add(prediction);
+            // The next job in line has to include this job's running time.
+            freeAt[earliest] = prediction.predictedFinish;
+        }
+        return predictions;
     }
 
     // The dashboard can read the same GPU objects and job history.
