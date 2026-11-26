@@ -48,6 +48,19 @@ public class RegistrationManager {
         return request.matchesPassword(password);
     }
 
+    // Collect the requests that are still waiting for approval.
+public ArrayList<AccessRequest> getPendingRequests() {
+    ArrayList<AccessRequest> pending = new ArrayList<>();
+
+    for (AccessRequest request : requests) {
+        if ("Pending".equals(request.getStatus())) {
+            pending.add(request);
+        }
+    }
+
+    return pending;
+}
+
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
