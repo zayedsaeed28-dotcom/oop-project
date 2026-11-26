@@ -1,3 +1,6 @@
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 
@@ -82,6 +85,26 @@ public class TimeAllowance {
         }
         return used;
     }
+
+    // Save the student's GPU minutes and extra-time grants to a text file.
+public void saveSummary(Path file) throws IOException {
+    ArrayList<String> lines = new ArrayList<String>();
+
+    lines.add("Student ID: " + studentId);
+    lines.add("Allocated minutes: " + getAllocatedMinutes());
+    lines.add("Used minutes: " + getUsedMinutes());
+    lines.add("Reserved minutes: " + getReservedMinutes());
+    lines.add("Available minutes: " + getAvailableMinutes());
+
+    lines.add("Extra time grants:");
+    if (grantHistory.isEmpty()) {
+        lines.add("None");
+    } else {
+        lines.addAll(grantHistory);
+    }
+
+    Files.write(file, lines);
+}
 
     public int getAvailableMinutes() {
         return allocatedMinutes - getUsedMinutes() - getReservedMinutes();
