@@ -258,17 +258,8 @@ if (scheduler == null) {
         refreshDashboard();
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                JFrame window = new JFrame("GPU dashboard");
-                DashboardFrame dashboard = new DashboardFrame(new SimulationClock());
-                window.setContentPane(dashboard.getPanel());
-                window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                window.pack();
-                window.setSize(Math.max(840, window.getWidth()), window.getHeight());
-                window.setVisible(true);
-            }
-        });
+       public static void main(String[] args) {
+        // Both files open the same login screen.
+        StudentJobForm.main(args);
     }
 }

@@ -314,7 +314,7 @@ cancelJob.addActionListener(event -> {
             }
 
            DashboardFrame dashboard = DashboardFrame.resume(accounts.getSavedScheduler());
-            JButton login = new JButton("Student login (demo: S01 / demo)");
+            JButton login = new JButton("Student login");
             login.addActionListener(event -> open(accounts, dashboard));
 
             JFrame window = new JFrame("Student job form demo");
@@ -335,29 +335,54 @@ cancelJob.addActionListener(event -> {
                     window.dispose();
                 }
             }); 
-            window.add(new JScrollPane(dashboard.getPanel()), BorderLayout.CENTER);
+                       java.awt.CardLayout pages = new java.awt.CardLayout();
+            JPanel screens = new JPanel(pages);
+
+            // The first screen only has the two login buttons.
+            JButton adminLogin = new JButton("Admin login");
+            JPanel loginButtons = new JPanel();
+            loginButtons.add(login);
+            loginButtons.add(adminLogin);
+            JPanel home = new JPanel(new java.awt.GridBagLayout());
+            home.add(loginButtons);
+
+            // Keep the same dashboard when switching screens.
             JButton review = new JButton("Review account requests");
-JPanel buttons = new JPanel();
-buttons.add(login);
-buttons.add(review);
-window.add(buttons, BorderLayout.SOUTH);
+            JButton logout = new JButton("Log out");
+            JPanel adminButtons = new JPanel();
+            adminButtons.add(review);
+            adminButtons.add(logout);
 
-review.addActionListener(event -> {
-    // Check the administrator account from the project brief.
-    JTextField username = new JTextField();
-    JPasswordField password = new JPasswordField();
-    Object[] fields = {"Username", username, "Password", password};
+            JPanel adminPage = new JPanel(new BorderLayout());
+            adminPage.add(new JScrollPane(dashboard.getPanel()), BorderLayout.CENTER);
+            adminPage.add(adminButtons, BorderLayout.SOUTH);
 
-    int signIn = JOptionPane.showConfirmDialog(window, fields, "Admin login",
-            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-    if (signIn != JOptionPane.OK_OPTION) {
-        return;
-    }
-    if (!"admin".equals(username.getText()) ||
-            !"gpu2026".equals(new String(password.getPassword()))) {
-        JOptionPane.showMessageDialog(window, "Incorrect admin username or password.");
-        return;
-    }
+            screens.add(home, "home");
+            screens.add(adminPage, "admin");
+            window.setContentPane(screens);
+            pages.show(screens, "home");
+
+            logout.addActionListener(event -> pages.show(screens, "home"));
+
+            adminLogin.addActionListener(event -> {
+                JTextField username = new JTextField();
+                JPasswordField password = new JPasswordField();
+                Object[] fields = {"Username", username, "Password", password};
+
+                int answer = JOptionPane.showConfirmDialog(window, fields, "Admin login",
+                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                if (answer != JOptionPane.OK_OPTION) return;
+
+                if ("admin".equals(username.getText())
+                        && "gpu2026".equals(new String(password.getPassword()))) {
+                    dashboard.refreshDashboard();
+                    pages.show(screens, "admin");
+                } else {
+                    JOptionPane.showMessageDialog(window, "Incorrect admin username or password.");
+                }
+            });
+
+            review.addActionListener(event -> {
 
     // Refresh the list after each decision.
     while (true) {
@@ -375,7 +400,7 @@ review.addActionListener(event -> {
 
         int action = JOptionPane.showOptionDialog(window, choices, "Pending requests",
                 JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
-                new String[] {"Approve", "Reject", "Log out"}, "Log out");
+               new String[] {"Approve", "Reject", "Back"}, "Back");
         if (action != 0 && action != 1) {
             return;
         }
