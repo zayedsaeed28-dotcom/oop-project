@@ -153,8 +153,67 @@ cancelJob.addActionListener(event -> {
         return view;
     }
 
+     private static void findStudentAsAdmin(RegistrationManager accounts, DashboardFrame dashboard) {
+        JPanel panel = dashboard.getPanel();
+        String id = JOptionPane.showInputDialog(panel, "Enter the university ID");
+        if (id == null) return;
+
+        AccessRequest student = accounts.findRequest(id);
+        if (student == null) {
+            JOptionPane.showMessageDialog(panel, "Student ID not found.");
+            return;
+        }
+        if (!"Approved".equals(student.getStatus())) {
+            JOptionPane.showMessageDialog(panel, "Account status: " + student.getStatus());
+            return;
+        }
+
+        TimeAllowance balance = student.getAllowance();
+        JTextArea details = new JTextArea(14, 46);
+        details.setEditable(false);
+        details.setLineWrap(true);
+        details.setWrapStyleWord(true);
+        JTextField minutes = new JTextField();
+        JTextField reason = new JTextField();
+        Object[] fields = {new JScrollPane(details), "Extra minutes", minutes, "Reason", reason};
+        String[] buttons = {"Grant extra minutes", "Close"};
+
+        // Show the updated balance and grant history after each grant.
+        while (true) {
+            String history = String.join("\n", balance.getGrantHistory());
+            details.setText(student.getName() + " (" + student.getUniversityId() + ")\n"
+                    + "Allocated: " + balance.getAllocatedMinutes() + " min\n"
+                    + "Used: " + balance.getUsedMinutes() + " min\n"
+                    + "Reserved: " + balance.getReservedMinutes() + " min\n"
+                    + "Available: " + balance.getAvailableMinutes() + " min\n\n"
+                    + "Extra time grants\n" + (history.isEmpty() ? "None" : history)
+                    + "\n\nJobs\n" + jobsForStudent(dashboard.getScheduler(), student, ""));
+            details.setCaretPosition(0);
+
+            int choice = JOptionPane.showOptionDialog(panel, fields, "Student account",
+                    JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, buttons, buttons[1]);
+            if (choice != 0) return;
+
+            try {
+                int extra = Integer.parseInt(minutes.getText().trim());
+                balance.grantExtraMinutes(extra, reason.getText());
+                minutes.setText("");
+                reason.setText("");
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(panel, "Enter a whole number of minutes.");
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(panel, ex.getMessage());
+            }
+        }
+    }
+
     private String findMyJobs(String search) {
-        Scheduler scheduler = dashboard.getScheduler();
+        return jobsForStudent(dashboard.getScheduler(), student, search);
+    }
+
+    // Both screens show only the jobs belonging to the selected student.
+    private static String jobsForStudent(Scheduler scheduler, AccessRequest student, String search) {
+        if (scheduler == null) return "No jobs yet.";
         ArrayList<Scheduler.QueuePrediction> predictions = scheduler.getQueuePredictions();
         DateTimeFormatter time = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String query = search.trim().toLowerCase(Locale.ROOT);
@@ -399,6 +458,9 @@ cancelJob.addActionListener(event -> {
             JButton logout = new JButton("Log out");
             JPanel adminButtons = new JPanel();
             adminButtons.add(review);
+                        JButton findStudent = new JButton("Find student");
+            findStudent.addActionListener(event -> findStudentAsAdmin(accounts, dashboard));
+            adminButtons.add(findStudent);
             JButton cancel = new JButton("Cancel job");
             cancel.addActionListener(event -> cancelJobAsAdmin(dashboard));
             adminButtons.add(cancel);
