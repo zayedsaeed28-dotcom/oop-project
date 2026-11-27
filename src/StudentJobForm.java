@@ -294,6 +294,54 @@ cancelJob.addActionListener(event -> {
         }
     }
 
+    private static void cancelJobAsAdmin(DashboardFrame dashboard) {
+        JPanel panel = dashboard.getPanel();
+        Scheduler scheduler = dashboard.getScheduler();
+        if (scheduler == null) {
+            JOptionPane.showMessageDialog(panel, "Set the simulation start time first.");
+            return;
+        }
+
+        // The admin can choose an active job from any student.
+        ArrayList<Job> activeJobs = new ArrayList<>();
+        JComboBox<String> choices = new JComboBox<>();
+        for (Job job : scheduler.getJobs()) {
+            if ("Queued".equals(job.getStatus()) || "Running".equals(job.getStatus())) {
+                activeJobs.add(job);
+                choices.addItem("Job " + job.getJobId() + " | " + job.getStudentId()
+                        + " | " + job.getTitle() + " | " + job.getStatus());
+            }
+        }
+        if (activeJobs.isEmpty()) {
+            JOptionPane.showMessageDialog(panel, "There are no queued or running jobs.");
+            return;
+        }
+
+        JTextField reason = new JTextField();
+        Object[] fields = {"Choose a job", choices, "Reason for cancellation", reason};
+        String[] buttons = {"Cancel selected job", "Keep job"};
+        while (JOptionPane.showOptionDialog(panel, fields, "Cancel a GPU job",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+                buttons, buttons[1]) == 0) {
+            if (reason.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(panel, "Enter a reason for the cancellation.");
+                continue;
+            }
+
+            Job job = activeJobs.get(choices.getSelectedIndex());
+            try {
+                // The scheduler records the reason and starts the next waiting job.
+                scheduler.cancelJob(job.getJobId(), "admin", reason.getText());
+                dashboard.refreshDashboard();
+                JOptionPane.showMessageDialog(panel, "Job " + job.getJobId()
+                        + " cancelled. Charged " + job.getChargedMinutes() + " min.");
+            } catch (IllegalArgumentException | IllegalStateException ex) {
+                JOptionPane.showMessageDialog(panel, ex.getMessage());
+            }
+            return;
+        }
+    }
+
     // Run this file to try the form with one sample student and the real dashboard clock.
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
@@ -351,6 +399,9 @@ cancelJob.addActionListener(event -> {
             JButton logout = new JButton("Log out");
             JPanel adminButtons = new JPanel();
             adminButtons.add(review);
+            JButton cancel = new JButton("Cancel job");
+            cancel.addActionListener(event -> cancelJobAsAdmin(dashboard));
+            adminButtons.add(cancel);
             adminButtons.add(logout);
 
             JPanel adminPage = new JPanel(new BorderLayout());
