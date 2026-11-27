@@ -5,7 +5,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 
 // Keeps track of one approved student's GPU minutes.
-public class TimeAllowance {
+public class TimeAllowance implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
     private final String studentId;
     private int allocatedMinutes;
     private final ArrayList<String> grantHistory = new ArrayList<String>();

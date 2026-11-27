@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 
 // Sends accepted jobs to the four GPUs in first come, first served order.
-public class Scheduler {
+	public class Scheduler implements java.io.Serializable {
+            private static final long serialVersionUID = 1L;
     private final GPU[] gpus = {new GPU(1), new GPU(2), new GPU(3), new GPU(4)};
     private final ArrayList<Job> jobs = new ArrayList<>();
     private int nextJobId = 1;
@@ -18,6 +19,13 @@ public class Scheduler {
         }
         simulationStart = startTime;
         lastMinute = startTime;
+    }
+        public LocalDateTime getStartTime() {
+        return simulationStart;
+    }
+
+    public LocalDateTime getCurrentTime() {
+        return lastMinute;
     }
 
     // Give the job an ID and timestamp before its minutes are reserved.

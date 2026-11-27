@@ -226,7 +226,7 @@ cancelJob.addActionListener(event -> {
                 return;
             }
 
-            DashboardFrame dashboard = new DashboardFrame(new SimulationClock());
+           DashboardFrame dashboard = DashboardFrame.resume(accounts.getSavedScheduler());
             JButton login = new JButton("Student login (demo: S01 / demo)");
             login.addActionListener(event -> open(accounts, dashboard));
 
@@ -237,7 +237,7 @@ cancelJob.addActionListener(event -> {
             window.addWindowListener(new java.awt.event.WindowAdapter() {
                 public void windowClosing(java.awt.event.WindowEvent event) {
                     try {
-                        accounts.save();
+                        accounts.save(dashboard.getScheduler());
                     } catch (java.io.IOException ex) {
                         int answer = JOptionPane.showConfirmDialog(window,
                                 "Could not save registrations: " + ex.getMessage()

@@ -2,7 +2,8 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 
 // A Job stores one student's request to use a GPU.
-public class Job {
+public class Job implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
     // These details stay the same after the job is submitted.
     private final int jobId;
     private final String studentId;

@@ -8,6 +8,8 @@ import java.util.Arrays;
 public class RegistrationManager {
     private final ArrayList<AccessRequest> requests = new ArrayList<>();
     private static final String FORMAT = "KU registrations 1";
+        private static final String SESSION_FORMAT = "KU simulation 2";
+    private Scheduler savedScheduler;
     private Path file;
     private byte[] lastSave;
 
@@ -79,7 +81,12 @@ public class RegistrationManager {
         if (manager.lastSave == null) return manager;
 
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(manager.lastSave))) {
-            if (!FORMAT.equals(in.readUTF())) {
+                        String format = in.readUTF();
+            if (SESSION_FORMAT.equals(format)) {
+                manager.readSimulation(in);
+                return manager;
+            }
+            if (!FORMAT.equals(format)) {
                 throw new IOException("Unknown registration file format.");
             }
             int count = in.readInt();
@@ -103,18 +110,61 @@ public class RegistrationManager {
         return manager;
     }
 
+        public Scheduler getSavedScheduler() {
+        return savedScheduler;
+    }
+
+    private void readSimulation(DataInputStream in) throws IOException {
+        try (ObjectInputStream objects = new ObjectInputStream(in)) {
+            // Only read the types used by our simulation.
+            objects.setObjectInputFilter(ObjectInputFilter.Config.createFilter(
+                    "maxdepth=32;maxarray=" + lastSave.length + ";AccessRequest;TimeAllowance;"
+                    + "Job;GPU;Scheduler;java.util.ArrayList;java.lang.Object;java.lang.Integer;"
+                    + "java.lang.Number;java.time.Ser;java.time.LocalDateTime;!*"));
+
+            Object students = objects.readObject();
+            Object schedule = objects.readObject();
+            if (!(students instanceof ArrayList<?>) ||
+                    (schedule != null && !(schedule instanceof Scheduler))) {
+                throw new IOException("Invalid simulation file.");
+            }
+
+            for (Object student : (ArrayList<?>) students) {
+                if (!(student instanceof AccessRequest)) {
+                    throw new IOException("Invalid student in the simulation file.");
+                }
+                requests.add((AccessRequest) student);
+            }
+
+            if (in.read() != -1) throw new IOException("Unexpected data after the simulation.");
+            savedScheduler = (Scheduler) schedule;
+        } catch (ClassNotFoundException ex) {
+            throw new IOException("Could not read the saved simulation.", ex);
+        }
+    }
+
     public void save() throws IOException {
+        save(savedScheduler);
+    }
+
+    public void save(Scheduler scheduler) throws IOException {
         if (file == null) throw new IOException("Open a registration file before saving.");
 
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(buffer)) {
-            out.writeUTF(FORMAT);
-            out.writeInt(requests.size());
-            for (AccessRequest request : requests) {
-                request.writeTo(out);
+            out.writeUTF(SESSION_FORMAT);
+            // One stream keeps the same Job shared by the student, scheduler and GPU.
+            try (ObjectOutputStream objects = new ObjectOutputStream(out)) {
+                objects.writeObject(requests);
+                objects.writeObject(scheduler);
             }
         }
-        byte[] nextSave = buffer.toByteArray();
+        writeSave(buffer.toByteArray());
+        savedScheduler = scheduler;
+    }
+
+    private void writeSave(byte[] nextSave) throws IOException {
+     
         if (Arrays.equals(nextSave, lastSave)) return;
 
         // Protect changes if two copies of the program are open.

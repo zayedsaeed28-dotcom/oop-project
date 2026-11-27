@@ -7,7 +7,8 @@ import java.security.SecureRandom;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
-public class AccessRequest {
+	public class AccessRequest implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
     private final String universityId;
     private final String name;
     private final String email;

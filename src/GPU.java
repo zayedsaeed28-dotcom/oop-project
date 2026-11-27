@@ -2,7 +2,8 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 
 // Each GPU can run one job at a time.
-public class GPU {
+	public class GPU implements java.io.Serializable {
+            private static final long serialVersionUID = 1L;
     private final int gpuId;
     private Job currentJob;
 

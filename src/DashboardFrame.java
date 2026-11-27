@@ -37,7 +37,23 @@ public final class DashboardFrame implements ActionListener {
         useScheduler = true;
         refreshDashboard();
     }
+    // Open the dashboard at the minute when the student closed it.
+    public static DashboardFrame resume(Scheduler saved) {
+        SimulationClock clock = new SimulationClock();
+        if (saved == null) return new DashboardFrame(clock);
 
+        clock.start(saved.getCurrentTime());
+        DashboardFrame dashboard = new DashboardFrame(clock, saved.getGpus());
+
+        Date start = Date.from(saved.getStartTime().atZone(ZoneId.systemDefault()).toInstant());
+        dashboard.datePicker.setValue(start);
+        dashboard.timePicker.setValue(start);
+
+        dashboard.scheduler = saved;
+        dashboard.useScheduler = true;
+        dashboard.refreshDashboard();
+        return dashboard;
+    }
     // Use the same GPU objects as the simulation.
     public DashboardFrame(SimulationClock clock, GPU[] devices) {
         this.clock = clock;
