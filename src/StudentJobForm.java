@@ -1,5 +1,8 @@
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Locale;
 import javax.swing.*;
 
 // An approved student uses this form to submit a job to the shared scheduler.
@@ -110,6 +113,10 @@ cancelJob.addActionListener(event -> {
         message.setText(ex.getMessage());
     }
 });
+                JButton myJobs = new JButton("My jobs");
+        bottom.add(myJobs);
+        myJobs.addActionListener(event -> JOptionPane.showMessageDialog(
+                panel, makeMyJobsPanel(), "My jobs", JOptionPane.PLAIN_MESSAGE));
         bottom.add(message);
         panel.add(bottom, BorderLayout.SOUTH);
         submit.addActionListener(event -> submitJob());
@@ -120,7 +127,87 @@ cancelJob.addActionListener(event -> {
         return panel;
     }
 
-    private void refreshBalance() {
+       private JPanel makeMyJobsPanel() {
+        JTextField searchBox = new JTextField(18);
+        JButton search = new JButton("Search");
+        JPanel top = new JPanel();
+        top.add(new JLabel("Job ID or title"));
+        top.add(searchBox);
+        top.add(search);
+
+        JTextArea results = new JTextArea(15, 46);
+        results.setEditable(false);
+        results.setLineWrap(true);
+        results.setWrapStyleWord(true);
+
+        search.addActionListener(event -> {
+            results.setText(findMyJobs(searchBox.getText()));
+            results.setCaretPosition(0);
+        });
+        searchBox.addActionListener(event -> search.doClick());
+        search.doClick(); // An empty search shows all my jobs.
+
+        JPanel view = new JPanel(new BorderLayout(4, 4));
+        view.add(top, BorderLayout.NORTH);
+        view.add(new JScrollPane(results), BorderLayout.CENTER);
+        return view;
+    }
+
+    private String findMyJobs(String search) {
+        Scheduler scheduler = dashboard.getScheduler();
+        ArrayList<Scheduler.QueuePrediction> predictions = scheduler.getQueuePredictions();
+        DateTimeFormatter time = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String query = search.trim().toLowerCase(Locale.ROOT);
+        StringBuilder list = new StringBuilder();
+
+        for (Job job : scheduler.getJobs()) {
+            // Check the owner before showing anything about this job.
+            if (!student.getUniversityId().equals(job.getStudentId())) continue;
+
+            boolean idMatches = String.valueOf(job.getJobId()).equals(query);
+            boolean titleMatches = job.getTitle().toLowerCase(Locale.ROOT).contains(query);
+            if (!idMatches && !titleMatches) continue;
+
+            list.append("Job " + job.getJobId() + " - " + job.getTitle() + "\n");
+            list.append("Application: " + job.getApplicationName() + " | " + job.getStatus() + "\n");
+            list.append("Submitted: " + job.getSubmissionTime().format(time) + "\n");
+
+            if (job.getStartTime() != null) {
+                list.append("GPU " + job.getAssignedGpuId() + " | Started: "
+                        + job.getStartTime().format(time) + "\n");
+                list.append("Wait before start: " + job.getWaitBeforeStartMinutes() + " min\n");
+            }
+
+            if ("Queued".equals(job.getStatus())) {
+                // Use the scheduler's prediction since this job is still waiting.
+                for (Scheduler.QueuePrediction p : predictions) {
+                    if (p.jobId == job.getJobId()) {
+                        list.append("Queue position: " + p.queuePosition + " | Wait left: "
+                                + p.waitMinutes + " min\n");
+                        list.append("Predicted GPU: " + p.predictedGpuId + "\n");
+                        list.append("Predicted start: " + p.predictedStart.format(time) + "\n");
+                        list.append("Predicted finish: " + p.predictedFinish.format(time) + "\n");
+                        break;
+                    }
+                }
+            } else if ("Running".equals(job.getStatus())) {
+                list.append("Expected finish: " + job.getStartTime()
+                        .plusMinutes(job.getEstimatedDuration()).format(time) + "\n");
+            } else {
+                if ("Cancelled".equals(job.getStatus())) {
+                    list.append("Cancelled: " + job.getCancellationTime().format(time)
+                            + " by " + job.getCancelledBy() + "\n");
+                    list.append("Reason: " + job.getCancellationReason() + "\n");
+                } else {
+                    list.append("Finished: " + job.getFinishTime().format(time) + "\n");
+                }
+                list.append("Charged: " + job.getChargedMinutes() + " min\n");
+            }
+            list.append("\n");
+        }
+        return list.length() == 0 ? "No matching jobs." : list.toString();
+    }
+ private void refreshBalance() {
         TimeAllowance minutes = student.getAllowance();
         balance.setText("GPU minutes: allocated " + minutes.getAllocatedMinutes()
                 + " | used " + minutes.getUsedMinutes() + " | reserved " + minutes.getReservedMinutes()
