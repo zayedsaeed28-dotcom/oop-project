@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
 import javax.swing.*;
 
@@ -23,7 +24,7 @@ public final class DashboardFrame implements ActionListener {
     private final JButton advanceButton = new JButton("Advance Minute");
     private Scheduler scheduler;
     private boolean useScheduler;
-    private final JTextArea waitingJobs = new JTextArea(3, 36);
+    private final JTextArea allJobs = new JTextArea(4, 36);
     private final JTextArea completedJobs = new JTextArea(5, 36);
 
     private final JLabel clockLabel = new JLabel();
@@ -89,9 +90,11 @@ public final class DashboardFrame implements ActionListener {
 panel.add(jobCountsLabel);
         panel.add(new JLabel("GPU utilization"));
         panel.add(utilizationLabel);
-        waitingJobs.setEditable(false);
-        panel.add(new JLabel("Waiting jobs"));
-        panel.add(new JScrollPane(waitingJobs));
+              allJobs.setEditable(false);
+        allJobs.setLineWrap(true);
+        allJobs.setWrapStyleWord(true);
+        panel.add(new JLabel("All jobs"));
+        panel.add(new JScrollPane(allJobs));
         completedJobs.setEditable(false);
         panel.add(new JLabel("Completed jobs"));
         panel.add(new JScrollPane(completedJobs));
@@ -180,7 +183,7 @@ if (scheduler == null) {
     jobCountsLabel.setText("Queued " + queued + " | Running " + running
             + " | Completed " + completed + " | Cancelled " + cancelled);
 }
-        refreshWaitingJobs();
+        refreshAllJobs();
         refreshCompletedJobs();
     }
 
@@ -189,23 +192,42 @@ if (scheduler == null) {
         return scheduler;
     }
 
-    private void refreshWaitingJobs() {
+    private void refreshAllJobs() {
         if (scheduler == null) {
-            waitingJobs.setText(useScheduler ? "Set the start time first." : "Queue unavailable.");
+            allJobs.setText(useScheduler ? "Set the start time first." : "Job list unavailable.");
             return;
         }
-        StringBuilder lines = new StringBuilder();
-        for (Scheduler.QueuePrediction job : scheduler.getQueuePredictions()) {
-            lines.append("#").append(job.queuePosition).append("  Job ").append(job.jobId)
-                    .append("  GPU ").append(job.predictedGpuId)
-                    .append("  Wait ").append(job.waitMinutes).append(" min")
-                    .append("  Start ").append(job.predictedStart.format(format))
-                    .append("  Finish ").append(job.predictedFinish.format(format)).append("\n");
-        }
-        waitingJobs.setText(lines.length() == 0 ? "No waiting jobs." : lines.toString());
-        waitingJobs.setCaretPosition(0);
-    }
 
+        // Match each waiting job to the prediction made by the scheduler.
+        HashMap<Integer, Scheduler.QueuePrediction> predictions = new HashMap<>();
+        for (Scheduler.QueuePrediction p : scheduler.getQueuePredictions()) {
+            predictions.put(p.jobId, p);
+        }
+
+        StringBuilder lines = new StringBuilder();
+        for (Job job : scheduler.getJobs()) {
+            lines.append("Job ").append(job.getJobId())
+                    .append(" | Student ").append(job.getStudentId())
+                    .append(" | App ").append(job.getApplicationName())
+                    .append(" | ").append(job.getStatus());
+
+            Scheduler.QueuePrediction p = predictions.get(job.getJobId());
+            if (p != null) {
+                lines.append(" | Queue position ").append(p.queuePosition)
+                        .append(" | Wait ").append(p.waitMinutes).append(" min")
+                        .append(" | Predicted GPU ").append(p.predictedGpuId)
+                        .append(" | Predicted start ").append(p.predictedStart.format(format))
+                        .append(" | Predicted finish ").append(p.predictedFinish.format(format));
+            } else if (job.getAssignedGpuId() != null) {
+                // Once a job has started, show the GPU it actually used.
+                lines.append(" | GPU ").append(job.getAssignedGpuId());
+            }
+            lines.append('\n');
+        }
+
+        allJobs.setText(lines.length() == 0 ? "No jobs yet." : lines.toString());
+        allJobs.setCaretPosition(0);
+    }
     // Show the final times recorded by the scheduler for each completed job.
     private void refreshCompletedJobs() {
         if (scheduler == null) {
