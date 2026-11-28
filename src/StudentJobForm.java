@@ -175,8 +175,8 @@ cancelJob.addActionListener(event -> {
         details.setWrapStyleWord(true);
         JTextField minutes = new JTextField();
         JTextField reason = new JTextField();
-        Object[] fields = {new JScrollPane(details), "Extra minutes", minutes, "Reason", reason};
-        String[] buttons = {"Grant extra minutes", "Close"};
+               Object[] fields = {new JScrollPane(details), "Minutes", minutes, "Reason for a grant", reason};
+        String[] buttons = {"Grant extra minutes", "Reduce minutes", "Close"};
 
         // Show the updated balance and grant history after each grant.
         while (true) {
@@ -190,13 +190,18 @@ cancelJob.addActionListener(event -> {
                     + "\n\nJobs\n" + jobsForStudent(dashboard.getScheduler(), student, ""));
             details.setCaretPosition(0);
 
-            int choice = JOptionPane.showOptionDialog(panel, fields, "Student account",
-                    JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, buttons, buttons[1]);
-            if (choice != 0) return;
+                       int choice = JOptionPane.showOptionDialog(panel, fields, "Student account",
+                    JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, buttons, buttons[2]);
+            if (choice != 0 && choice != 1) return;
 
             try {
-                int extra = Integer.parseInt(minutes.getText().trim());
-                balance.grantExtraMinutes(extra, reason.getText());
+                int amount = Integer.parseInt(minutes.getText().trim());
+                if (choice == 0) {
+                    balance.grantExtraMinutes(amount, reason.getText());
+                } else {
+                    // Only unused, unreserved minutes can be taken back.
+                    balance.reduceAllocatedMinutes(amount);
+                }
                 minutes.setText("");
                 reason.setText("");
             } catch (NumberFormatException ex) {
