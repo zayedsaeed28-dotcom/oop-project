@@ -202,6 +202,7 @@ cancelJob.addActionListener(event -> {
                     // Only unused, unreserved minutes can be taken back.
                     balance.reduceAllocatedMinutes(amount);
                 }
+                dashboard.refreshDashboard();
                 minutes.setText("");
                 reason.setText("");
             } catch (NumberFormatException ex) {
@@ -425,7 +426,7 @@ cancelJob.addActionListener(event -> {
                 return;
             }
 
-           DashboardFrame dashboard = DashboardFrame.resume(accounts.getSavedScheduler());
+          DashboardFrame dashboard = DashboardFrame.forAccounts(accounts);
             JButton login = new JButton("Student login");
             login.addActionListener(event -> open(accounts, dashboard));
 
@@ -526,6 +527,7 @@ cancelJob.addActionListener(event -> {
         AccessRequest selected = pending.get(choices.getSelectedIndex());
         if (action == 0) {
             selected.approve();
+            dashboard.refreshDashboard();
         } else {
             selected.reject();
         }

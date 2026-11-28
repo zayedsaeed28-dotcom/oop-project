@@ -52,6 +52,16 @@ public class RegistrationManager {
         return request.matchesPassword(password);
     }
 
+    // Approved students have a GPU allowance, even before their first job.
+    public ArrayList<AccessRequest> getApprovedStudents() {
+        ArrayList<AccessRequest> approved = new ArrayList<>();
+        for (AccessRequest request : requests) {
+            if ("Approved".equals(request.getStatus())) {
+                approved.add(request);
+            }
+        }
+        return approved;
+    }
     public ArrayList<AccessRequest> getPendingRequests() {
         ArrayList<AccessRequest> pending = new ArrayList<>();
         for (AccessRequest request : requests) {

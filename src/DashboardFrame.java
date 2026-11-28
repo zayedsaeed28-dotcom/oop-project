@@ -22,6 +22,8 @@ public final class DashboardFrame implements ActionListener {
             new SpinnerDateModel(new Date(), null, null, Calendar.MINUTE));
     private final JButton startButton = new JButton("Set start time");
     private final JButton advanceButton = new JButton("Advance Minute");
+        private RegistrationManager accounts;
+    private final JTextArea studentBalances = new JTextArea(4, 36);
     private Scheduler scheduler;
     private boolean useScheduler;
     private final JTextArea allJobs = new JTextArea(4, 36);
@@ -183,6 +185,7 @@ if (scheduler == null) {
     jobCountsLabel.setText("Queued " + queued + " | Running " + running
             + " | Completed " + completed + " | Cancelled " + cancelled);
 }
+        refreshStudentBalances();
         refreshAllJobs();
         refreshCompletedJobs();
     }
@@ -192,6 +195,36 @@ if (scheduler == null) {
         return scheduler;
     }
 
+    // Use the current accounts so approvals and balance changes appear here.
+    public static DashboardFrame forAccounts(RegistrationManager accounts) {
+        DashboardFrame dashboard = resume(accounts.getSavedScheduler());
+        dashboard.accounts = accounts;
+        dashboard.studentBalances.setEditable(false);
+        dashboard.studentBalances.setLineWrap(true);
+        dashboard.studentBalances.setWrapStyleWord(true);
+        dashboard.panel.add(new JLabel("Student balances (minutes)"));
+        dashboard.panel.add(new JScrollPane(dashboard.studentBalances));
+        dashboard.refreshStudentBalances();
+        return dashboard;
+    }
+
+    private void refreshStudentBalances() {
+        if (accounts == null) return;
+
+        StringBuilder lines = new StringBuilder();
+        for (AccessRequest student : accounts.getApprovedStudents()) {
+            TimeAllowance balance = student.getAllowance();
+            lines.append(student.getUniversityId())
+                    .append(" | Allocated ").append(balance.getAllocatedMinutes())
+                    .append(" | Used ").append(balance.getUsedMinutes())
+                    .append(" | Reserved ").append(balance.getReservedMinutes())
+                    .append(" | Available ").append(balance.getAvailableMinutes())
+                    .append('\n');
+        }
+
+        studentBalances.setText(lines.length() == 0 ? "No approved students." : lines.toString());
+        studentBalances.setCaretPosition(0);
+    }
     private void refreshAllJobs() {
         if (scheduler == null) {
             allJobs.setText(useScheduler ? "Set the start time first." : "Job list unavailable.");
